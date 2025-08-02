@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>インタラクティブ描画ツール v7</title>
+    <title>インタラクティブ描画ツール v8</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
@@ -34,7 +34,7 @@
 <body class="bg-gray-100 flex flex-col items-center justify-center min-h-screen p-4">
 
     <div class="w-full max-w-7xl mx-auto">
-        <h1 class="text-2xl font-bold text-center text-gray-800 mb-4">インタラクティブ描画ツール v7</h1>
+        <h1 class="text-2xl font-bold text-center text-gray-800 mb-4">インタラクティブ描画ツール v8</h1>
         
         <div id="toolbar" class="bg-white rounded-lg shadow-md p-3 mb-4 flex flex-wrap items-center justify-center gap-3">
             <!-- 編集ツール -->
@@ -48,6 +48,7 @@
             <button class="tool-btn" data-tool="black-circle" title="黒丸"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" class="pointer-events-none"><circle cx="12" cy="12" r="10"></circle></svg></button>
             <button class="tool-btn" data-tool="white-circle" title="白丸"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle></svg></button>
             <button class="tool-btn" data-tool="line" title="直線"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="20" x2="20" y2="4"></line></svg></button>
+            <button class="tool-btn" data-tool="arrow" title="矢印"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg></button>
             <button class="tool-btn" data-tool="rectangle" title="四角形"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"></rect></svg></button>
             <button class="tool-btn" data-tool="spring" title="バネ"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12h2l1.5-3 2 6 2-6 2 6 1.5-3h2"></path></svg></button>
             <button class="tool-btn" data-tool="lens" title="凸レンズ"><span class="text-2xl font-bold pointer-events-none tool-btn-text">凸</span></button>
@@ -157,7 +158,7 @@
                 const handle = getHandleAt(pos, selectedElement);
                 cursor = handle ? `${handle.cursor}-resize` : 'move';
             } else {
-                const toolCursors = { clear: 'not-allowed', line: 'crosshair', rectangle: 'crosshair', spring: 'crosshair', lens: 'crosshair', select: 'default' };
+                const toolCursors = { clear: 'not-allowed', line: 'crosshair', arrow: 'crosshair', rectangle: 'crosshair', spring: 'crosshair', lens: 'crosshair', select: 'default' };
                 cursor = toolCursors[currentTool] || 'pointer';
             }
             canvas.style.cursor = cursor;
@@ -339,6 +340,7 @@
             switch (el.type) {
                 case 'circle': drawCircle(props.x, props.y, props.radius, props.color, props.stroke); break;
                 case 'line': drawLine(props.startX, props.startY, props.endX, props.endY, props.color, props.width); break;
+                case 'arrow': drawArrow(props.startX, props.startY, props.endX, props.endY, props.color, props.width); break;
                 case 'rectangle': drawRectangle(props.startX, props.startY, props.w, props.h, props.color, props.width); break;
                 case 'spring': drawSpring(props.startX, props.startY, props.endX, props.endY, props.color, props.width); break;
                 case 'lens': drawLens(props.startX, props.startY, props.endX, props.endY, props.color, props.width); break;
@@ -362,6 +364,34 @@
         
         function drawCircle(x, y, r, c, s) { ctx.beginPath(); ctx.arc(x, y, r, 0, 2 * Math.PI); ctx.fillStyle = c; ctx.fill(); if (s) { ctx.strokeStyle = s; ctx.lineWidth = 2; ctx.stroke(); } }
         function drawLine(x1, y1, x2, y2, c, w) { ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.strokeStyle = c; ctx.lineWidth = w; ctx.lineCap = 'round'; ctx.stroke(); }
+        
+        function drawArrow(startX, startY, endX, endY, color, width) {
+            const headlen = 10; // length of head in pixels
+            const dx = endX - startX;
+            const dy = endY - startY;
+            const angle = Math.atan2(dy, dx);
+            
+            // 本体
+            ctx.beginPath();
+            ctx.moveTo(startX, startY);
+            ctx.lineTo(endX, endY);
+            ctx.strokeStyle = color;
+            ctx.lineWidth = width;
+            ctx.lineCap = 'round';
+            ctx.stroke();
+
+            // 矢じり
+            ctx.beginPath();
+            ctx.moveTo(endX, endY);
+            ctx.lineTo(endX - headlen * Math.cos(angle - Math.PI / 6), endY - headlen * Math.sin(angle - Math.PI / 6));
+            ctx.moveTo(endX, endY);
+            ctx.lineTo(endX - headlen * Math.cos(angle + Math.PI / 6), endY - headlen * Math.sin(angle + Math.PI / 6));
+            ctx.strokeStyle = color;
+            ctx.lineWidth = width;
+            ctx.lineCap = 'round';
+            ctx.stroke();
+        }
+
         function drawRectangle(x, y, w, h, c, lw) { ctx.beginPath(); ctx.strokeStyle = c; ctx.lineWidth = lw; ctx.strokeRect(x, y, w, h); }
         function drawSpring(x1, y1, x2, y2, c, w) { ctx.beginPath(); ctx.strokeStyle = c; ctx.lineWidth = w; ctx.lineCap = 'round'; const dx = x2 - x1, dy = y2 - y1; const d = Math.sqrt(dx * dx + dy * dy); if (d < 10) { drawLine(x1, y1, x2, y2, c, w); return; } const a = Math.atan2(dy, dx); const n = Math.max(6, Math.floor(d / 8)); const amp = 10; ctx.moveTo(x1, y1); for (let i = 0; i <= n; i++) { const p = (i + 0.5) / (n + 1); const px = x1 + dx * p, py = y1 + dy * p; const o = amp * ((i % 2 === 0) ? 1 : -1); const cx = px + o * Math.cos(a + Math.PI / 2); const cy = py + o * Math.sin(a + Math.PI / 2); ctx.lineTo(cx, cy); } ctx.lineTo(x2, y2); ctx.stroke(); }
         function drawLens(x1, y1, x2, y2, c, w) { ctx.beginPath(); ctx.strokeStyle = c; ctx.lineWidth = w; const dx = x2 - x1, dy = y2 - y1; const d = Math.sqrt(dx * dx + dy * dy); const a = Math.atan2(dy, dx); const b = 0.4, cd = d * b; const mx = x1 + dx * 0.5, my = y1 + dy * 0.5; const cp1x = mx + cd * Math.cos(a - Math.PI / 2), cp1y = my + cd * Math.sin(a - Math.PI / 2); const cp2x = mx + cd * Math.cos(a + Math.PI / 2), cp2y = my + cd * Math.sin(a + Math.PI / 2); ctx.moveTo(x1, y1); ctx.quadraticCurveTo(cp1x, cp1y, x2, y2); ctx.moveTo(x1, y1); ctx.quadraticCurveTo(cp2x, cp2y, x2, y2); ctx.stroke(); }
