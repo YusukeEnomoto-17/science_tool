@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>インタラクティブ描画ツール v7</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; touch-action: none; }
+        .grid-background {
+            background-color: #ffffff;
+            background-image:
+                linear-gradient(to right, #e5e7eb 1px, transparent 1px),
+                linear-gradient(to bottom, #e5e7eb 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+        .tool-btn.active {
+            background-color: #3b82f6;
+            color: white;
+            box-shadow: 0 0 0 2px white, 0 0 0 4px #3b82f6;
+        }
+        .tool-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .tool-btn-text { display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; }
+        .color-swatch.active {
+            transform: scale(1.1);
+            box-shadow: 0 0 0 3px #3b82f6;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 flex flex-col items-center justify-center min-h-screen p-4">
+
+    <div class="w-full max-w-7xl mx-auto">
+        <h1 class="text-2xl font-bold text-center text-gray-800 mb-4">インタラクティブ描画ツール v7</h1>
+        
+        <div id="toolbar" class="bg-white rounded-lg shadow-md p-3 mb-4 flex flex-wrap items-center justify-center gap-3">
+            <!-- 編集ツール -->
+            <button class="tool-btn" id="undo-btn" title="元に戻す (Ctrl+Z)"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="pointer-events-none"><path d="M21 7v6h-6"></path><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l-3 2.7"></path></svg></button>
+            <button class="tool-btn" id="redo-btn" title="やり直す (Ctrl+Y)"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="pointer-events-none"><path d="M3 7v6h6"></path><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3l3 2.7"></path></svg></button>
+            <div class="w-px bg-gray-300 h-8"></div>
+            <!-- 選択ツール -->
+            <button class="tool-btn" data-tool="select" title="選択と編集"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"></path><path d="M13 13l6 6"></path></svg></button>
+            <div class="w-px bg-gray-300 h-8"></div>
+            <!-- 描画ツール -->
+            <button class="tool-btn" data-tool="black-circle" title="黒丸"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" class="pointer-events-none"><circle cx="12" cy="12" r="10"></circle></svg></button>
+            <button class="tool-btn" data-tool="white-circle" title="白丸"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle></svg></button>
+            <button class="tool-btn" data-tool="line" title="直線"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="20" x2="20" y2="4"></line></svg></button>
+            <button class="tool-btn" data-tool="rectangle" title="四角形"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"></rect></svg></button>
+            <button class="tool-btn" data-tool="spring" title="バネ"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12h2l1.5-3 2 6 2-6 2 6 1.5-3h2"></path></svg></button>
+            <button class="tool-btn" data-tool="lens" title="凸レンズ"><span class="text-2xl font-bold pointer-events-none tool-btn-text">凸</span></button>
+            <div class="w-px bg-gray-300 h-8"></div>
+            <!-- カラーパレット -->
+            <div id="color-palette" class="flex gap-2 items-center"></div>
+            <div class="w-px bg-gray-300 h-8"></div>
+            <!-- 消去ツール -->
+            <button class="tool-btn" data-tool="clear" title="クリックで消去"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 19.5l19-19M12.5 21.5L21.5 12.5"></path><path d="M15 12.3L18.7 8.6c.4-.4.4-1 0-1.4l-2.3-2.3c-.4-.4-1-.4-1.4 0L11.3 8.7"></path><path d="M9 15l-4.3 4.3c-.4.4-.4 1 0 1.4l2.3 2.3c.4.4 1 .4 1.4 0L12.7 19"></path></svg></button>
+            <button class="tool-btn" id="clear-all-btn" title="すべてクリア"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>
+        </div>
+
+        <div id="canvas-container" class="relative w-full aspect-[4/3] bg-white rounded-lg shadow-lg overflow-hidden">
+            <canvas id="drawing-canvas" class="grid-background"></canvas>
+        </div>
+    </div>
+
+    <script>
+        // --- 初期設定 ---
+        const canvas = document.getElementById('drawing-canvas');
+        const ctx = canvas.getContext('2d');
+        const toolbar = document.getElementById('toolbar');
+        const canvasContainer = document.getElementById('canvas-container');
+        const colorPalette = document.getElementById('color-palette');
+        const undoBtn = document.getElementById('undo-btn');
+        const redoBtn = document.getElementById('redo-btn');
+
+        const gridSize = 20;
+        const colors = ['#1f2937', '#ef4444', '#3b82f6', '#22c55e', '#f97316', '#a855f7', '#ec4899'];
+        let currentColor = colors[0];
+        let currentTool = 'select';
+        let elements = [];
+        
+        let selectedElement = null;
+        let actionState = { type: 'none' };
+
+        let history = [[]];
+        let historyIndex = 0;
+
+        // --- 初期化 ---
+        function initialize() {
+            setupCanvas();
+            setupColorPalette();
+            addEventListeners();
+            updateUI();
+        }
+
+        function setupCanvas() {
+            const dpr = window.devicePixelRatio || 1;
+            const rect = canvasContainer.getBoundingClientRect();
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            ctx.scale(dpr, dpr);
+            canvas.style.width = `${rect.width}px`;
+            canvas.style.height = `${rect.height}px`;
+            redrawAll();
+        }
+
+        function setupColorPalette() {
+            colors.forEach(color => {
+                const swatch = document.createElement('button');
+                swatch.className = 'color-swatch w-8 h-8 rounded-full border-2 border-gray-200 focus:outline-none transition-transform duration-150';
+                swatch.style.backgroundColor = color;
+                swatch.dataset.color = color;
+                colorPalette.appendChild(swatch);
+            });
+        }
+
+        function addEventListeners() {
+            window.addEventListener('resize', setupCanvas);
+            window.addEventListener('keydown', handleGlobalKeyDown);
+            toolbar.addEventListener('click', handleToolbarClick);
+            canvas.addEventListener('pointerdown', handlePointerDown);
+            canvas.addEventListener('pointermove', handlePointerMove);
+            canvas.addEventListener('pointerup', handlePointerUp);
+        }
+
+        // --- UI更新 ---
+        function updateUI() {
+            updateActiveToolButton();
+            updateActiveColorSwatch();
+            updateUndoRedoButtons();
+            updateCursor();
+        }
+
+        function updateActiveToolButton() {
+            document.querySelectorAll('.tool-btn').forEach(btn => btn.classList.remove('active'));
+            const activeBtn = document.querySelector(`.tool-btn[data-tool="${currentTool}"]`);
+            if (activeBtn) activeBtn.classList.add('active');
+        }
+
+        function updateActiveColorSwatch() {
+            document.querySelectorAll('.color-swatch').forEach(swatch => {
+                swatch.classList.remove('active');
+                if (swatch.dataset.color === currentColor) swatch.classList.add('active');
+            });
+        }
+
+        function updateUndoRedoButtons() {
+            undoBtn.disabled = historyIndex <= 0;
+            redoBtn.disabled = historyIndex >= history.length - 1;
+        }
+
+        function updateCursor(pos = null) {
+            let cursor = 'default';
+            if (currentTool === 'select' && selectedElement) {
+                const handle = getHandleAt(pos, selectedElement);
+                cursor = handle ? `${handle.cursor}-resize` : 'move';
+            } else {
+                const toolCursors = { clear: 'not-allowed', line: 'crosshair', rectangle: 'crosshair', spring: 'crosshair', lens: 'crosshair', select: 'default' };
+                cursor = toolCursors[currentTool] || 'pointer';
+            }
+            canvas.style.cursor = cursor;
+        }
+        
+        function deselectElement() {
+            if (selectedElement) {
+                selectedElement = null;
+                redrawAll();
+            }
+        }
+
+        // --- イベントハンドラ ---
+        function handleToolbarClick(e) {
+            const target = e.target.closest('button');
+            if (!target) return;
+
+            if (target.dataset.tool) {
+                currentTool = target.dataset.tool;
+                deselectElement();
+                updateUI();
+            } else if (target.dataset.color) {
+                currentColor = target.dataset.color;
+                if (selectedElement) {
+                    selectedElement.color = currentColor;
+                    if (selectedElement.type === 'white-circle') selectedElement.stroke = currentColor;
+                    saveState();
+                }
+                updateUI();
+            } else if (target.id === 'undo-btn') undo();
+            else if (target.id === 'redo-btn') redo();
+            else if (target.id === 'clear-all-btn') clearAll();
+        }
+
+        function handleGlobalKeyDown(e) {
+            if ((e.key === 'Delete' || e.key === 'Backspace') && selectedElement) {
+                e.preventDefault();
+                elements = elements.filter(el => el !== selectedElement);
+                deselectElement();
+                saveState();
+            }
+            if (e.ctrlKey || e.metaKey) {
+                if (e.key === 'z') { e.preventDefault(); undo(); }
+                if (e.key === 'y') { e.preventDefault(); redo(); }
+            }
+        }
+
+        function handlePointerDown(e) {
+            const pos = getCanvasCoordinates(e);
+            const snappedPos = { x: snapToGrid(pos.x), y: snapToGrid(pos.y) };
+
+            if (currentTool === 'select') {
+                const handle = selectedElement ? getHandleAt(pos, selectedElement) : null;
+                if (handle) {
+                    actionState = { type: 'resizing', element: selectedElement, handle: handle.type };
+                } else {
+                    const elementToSelect = getElementAt(pos);
+                    if (elementToSelect) {
+                        selectedElement = elementToSelect;
+                        actionState = { type: 'moving', element: selectedElement, offset: { x: pos.x - (elementToSelect.x ?? elementToSelect.startX), y: pos.y - (elementToSelect.y ?? elementToSelect.startY) } };
+                    } else {
+                        deselectElement();
+                        actionState = { type: 'none' };
+                    }
+                }
+                redrawAll();
+            } else if (currentTool === 'clear') {
+                const elementToDelete = getElementAt(pos);
+                if (elementToDelete) {
+                    elements = elements.filter(el => el !== elementToDelete);
+                    if (selectedElement === elementToDelete) deselectElement();
+                    saveState();
+                }
+            } else {
+                deselectElement();
+                actionState = { type: 'drawing', tool: currentTool, startPos: snappedPos };
+            }
+        }
+
+        function handlePointerMove(e) {
+            const pos = getCanvasCoordinates(e);
+            updateCursor(pos);
+            if (actionState.type === 'none') return;
+
+            switch (actionState.type) {
+                case 'drawing': redrawAll(); drawPreview(actionState.tool, actionState.startPos, { x: snapToGrid(pos.x), y: snapToGrid(pos.y) }); break;
+                case 'moving': moveElement(actionState.element, pos.x - actionState.offset.x, pos.y - actionState.offset.y); redrawAll(); break;
+                case 'resizing': resizeElement(actionState.element, actionState.handle, pos); redrawAll(); break;
+            }
+        }
+
+        function handlePointerUp(e) {
+            if (actionState.type === 'drawing') {
+                const pos = getCanvasCoordinates(e);
+                const snappedPos = { x: snapToGrid(pos.x), y: snapToGrid(pos.y) };
+                if (actionState.startPos.x !== snappedPos.x || actionState.startPos.y !== snappedPos.y || ['black-circle', 'white-circle'].includes(actionState.tool)) {
+                    createElement(actionState.tool, actionState.startPos, snappedPos);
+                    saveState();
+                }
+            } else if (actionState.type === 'moving' || actionState.type === 'resizing') {
+                saveState();
+            }
+            actionState = { type: 'none' };
+            redrawAll();
+        }
+
+        // --- 状態管理 (Undo/Redo) ---
+        function saveState() {
+            const newState = JSON.parse(JSON.stringify(elements));
+            history = history.slice(0, historyIndex + 1);
+            history.push(newState);
+            historyIndex++;
+            updateUI();
+            redrawAll();
+        }
+
+        function undo() {
+            if (historyIndex > 0) {
+                historyIndex--;
+                elements = JSON.parse(JSON.stringify(history[historyIndex]));
+                deselectElement();
+                updateUI();
+                redrawAll();
+            }
+        }
+
+        function redo() {
+            if (historyIndex < history.length - 1) {
+                historyIndex++;
+                elements = JSON.parse(JSON.stringify(history[historyIndex]));
+                deselectElement();
+                updateUI();
+                redrawAll();
+            }
+        }
+
+        function clearAll() {
+            if (elements.length > 0) {
+                elements = [];
+                deselectElement();
+                saveState();
+            }
+        }
+
+        // --- 要素の生成と操作 ---
+        function createElement(tool, start, end) {
+            const common = { color: currentColor, width: 2 };
+            let newElement = {};
+            switch (tool) {
+                case 'black-circle': newElement = { type: 'circle', x: start.x, y: start.y, radius: 10, color: currentColor }; break;
+                case 'white-circle': newElement = { type: 'circle', x: start.x, y: start.y, radius: 10, color: 'white', stroke: currentColor }; break;
+                default: newElement = { type: tool, startX: start.x, startY: start.y, endX: end.x, endY: end.y, ...common }; break;
+            }
+            elements.push(newElement);
+        }
+
+        function moveElement(el, newX, newY) {
+            const snappedX = snapToGrid(newX); const snappedY = snapToGrid(newY);
+            if (el.type === 'circle') { el.x = snappedX; el.y = snappedY; } 
+            else { const dx = snappedX - el.startX; const dy = snappedY - el.startY; el.startX += dx; el.startY += dy; el.endX += dx; el.endY += dy; }
+        }
+
+        function resizeElement(el, handle, pos) {
+            const snappedPos = { x: snapToGrid(pos.x), y: snapToGrid(pos.y) };
+            if (handle === 'start') { el.startX = snappedPos.x; el.startY = snappedPos.y; }
+            else if (handle === 'end') { el.endX = snappedPos.x; el.endY = snappedPos.y; }
+        }
+
+        // --- 描画関数 ---
+        function redrawAll() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            elements.forEach(el => drawElement(el));
+            if (selectedElement) drawSelection(selectedElement);
+        }
+
+        function drawElement(el) {
+            const props = { ...el };
+            if (el.type === 'rectangle') { props.w = el.endX - el.startX; props.h = el.endY - el.startY; }
+            switch (el.type) {
+                case 'circle': drawCircle(props.x, props.y, props.radius, props.color, props.stroke); break;
+                case 'line': drawLine(props.startX, props.startY, props.endX, props.endY, props.color, props.width); break;
+                case 'rectangle': drawRectangle(props.startX, props.startY, props.w, props.h, props.color, props.width); break;
+                case 'spring': drawSpring(props.startX, props.startY, props.endX, props.endY, props.color, props.width); break;
+                case 'lens': drawLens(props.startX, props.startY, props.endX, props.endY, props.color, props.width); break;
+            }
+        }
+        
+        function drawPreview(tool, start, end) {
+            const previewColor = '#3b82f6';
+            const el = { type: tool, startX: start.x, startY: start.y, endX: end.x, endY: end.y, color: previewColor, width: 2 };
+            drawElement(el);
+        }
+
+        function drawSelection(el) {
+            const bounds = getElementBounds(el);
+            if (!bounds) return;
+            ctx.strokeStyle = '#3b82f6'; ctx.lineWidth = 1; ctx.setLineDash([4, 2]);
+            ctx.strokeRect(bounds.x - 4, bounds.y - 4, bounds.w + 8, bounds.h + 8);
+            ctx.setLineDash([]);
+            getHandlesForElement(el).forEach(handle => { ctx.fillStyle = '#3b82f6'; ctx.fillRect(handle.x - 4, handle.y - 4, 8, 8); });
+        }
+        
+        function drawCircle(x, y, r, c, s) { ctx.beginPath(); ctx.arc(x, y, r, 0, 2 * Math.PI); ctx.fillStyle = c; ctx.fill(); if (s) { ctx.strokeStyle = s; ctx.lineWidth = 2; ctx.stroke(); } }
+        function drawLine(x1, y1, x2, y2, c, w) { ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.strokeStyle = c; ctx.lineWidth = w; ctx.lineCap = 'round'; ctx.stroke(); }
+        function drawRectangle(x, y, w, h, c, lw) { ctx.beginPath(); ctx.strokeStyle = c; ctx.lineWidth = lw; ctx.strokeRect(x, y, w, h); }
+        function drawSpring(x1, y1, x2, y2, c, w) { ctx.beginPath(); ctx.strokeStyle = c; ctx.lineWidth = w; ctx.lineCap = 'round'; const dx = x2 - x1, dy = y2 - y1; const d = Math.sqrt(dx * dx + dy * dy); if (d < 10) { drawLine(x1, y1, x2, y2, c, w); return; } const a = Math.atan2(dy, dx); const n = Math.max(6, Math.floor(d / 8)); const amp = 10; ctx.moveTo(x1, y1); for (let i = 0; i <= n; i++) { const p = (i + 0.5) / (n + 1); const px = x1 + dx * p, py = y1 + dy * p; const o = amp * ((i % 2 === 0) ? 1 : -1); const cx = px + o * Math.cos(a + Math.PI / 2); const cy = py + o * Math.sin(a + Math.PI / 2); ctx.lineTo(cx, cy); } ctx.lineTo(x2, y2); ctx.stroke(); }
+        function drawLens(x1, y1, x2, y2, c, w) { ctx.beginPath(); ctx.strokeStyle = c; ctx.lineWidth = w; const dx = x2 - x1, dy = y2 - y1; const d = Math.sqrt(dx * dx + dy * dy); const a = Math.atan2(dy, dx); const b = 0.4, cd = d * b; const mx = x1 + dx * 0.5, my = y1 + dy * 0.5; const cp1x = mx + cd * Math.cos(a - Math.PI / 2), cp1y = my + cd * Math.sin(a - Math.PI / 2); const cp2x = mx + cd * Math.cos(a + Math.PI / 2), cp2y = my + cd * Math.sin(a + Math.PI / 2); ctx.moveTo(x1, y1); ctx.quadraticCurveTo(cp1x, cp1y, x2, y2); ctx.moveTo(x1, y1); ctx.quadraticCurveTo(cp2x, cp2y, x2, y2); ctx.stroke(); }
+
+        // --- ユーティリティ ---
+        function getCanvasCoordinates(e) { const r = canvas.getBoundingClientRect(); const cx = e.touches ? e.touches[0].clientX : e.clientX; const cy = e.touches ? e.touches[0].clientY : e.clientY; return { x: cx - r.left, y: cy - r.top }; }
+        function snapToGrid(v) { return Math.round(v / gridSize) * gridSize; }
+        
+        function getElementBounds(el) {
+            if (el.type === 'circle') return { x: el.x - el.radius, y: el.y - el.radius, w: el.radius * 2, h: el.radius * 2 };
+            const x = Math.min(el.startX, el.endX); const y = Math.min(el.startY, el.endY);
+            const w = Math.abs(el.startX - el.endX); const h = Math.abs(el.startY - el.endY);
+            return { x, y, w, h };
+        }
+
+        function getHandlesForElement(el) {
+            if (el.type === 'circle') return [];
+            return [ { type: 'start', x: el.startX, y: el.startY, cursor: 'nwse' }, { type: 'end', x: el.endX, y: el.endY, cursor: 'nwse' } ];
+        }
+
+        function getElementAt(pos) {
+            for (let i = elements.length - 1; i >= 0; i--) {
+                const el = elements[i];
+                const bounds = getElementBounds(el);
+                if (pos.x >= bounds.x && pos.x <= bounds.x + bounds.w && pos.y >= bounds.y && pos.y <= bounds.y + bounds.h) return el;
+            }
+            return null;
+        }
+
+        function getHandleAt(pos, el) {
+            for (const handle of getHandlesForElement(el)) {
+                if (Math.sqrt((pos.x - handle.x) ** 2 + (pos.y - handle.y) ** 2) < 8) return handle;
+            }
+            return null;
+        }
+        
+        // --- 実行 ---
+        window.onload = initialize;
+    </script>
+</body>
+</html>
